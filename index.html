@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="wishbook-max-price" content="250">
 <meta name="wishbook-api" content="https://script.google.com/macros/s/AKfycbz-7p5kvc_WifYZgNewqQwOM9kL6AEVcyfn7OxF1hw4lsY3aQuBc6kddpQ-Rqdzg7U/exec">
 <meta name="description" content="The Henschel family Christmas wish list, with prices checked every morning.">
 <meta property="og:title" content="The Henschel Wish Book">
@@ -207,7 +208,7 @@ td.num{font-variant-numeric:tabular-nums;text-align:right}
       <option value="u25">Under $25</option>
       <option value="25-75">$25–75</option>
       <option value="75-150">$75–150</option>
-      <option value="150p">$150+</option>
+      <option value="150p">$150–250</option>
     </select>
     <label class="toggle"><input type="checkbox" id="saleOnly"> On sale only</label>
     <span class="spacer"></span>
@@ -273,6 +274,8 @@ function view(it){
   if(Array.isArray(it.history)){const now=Date.now();for(const h of it.history){const t=new Date(h.date).getTime();if(now-t>=6.5*864e5&&now-t<=14*864e5&&Number(h.price)>price){drop=true;break;}}}
   return {price,reg,onSale,save,pct,drop,name:p.name||it.name,retailer:p.retailer||"",url:bestUrl(p.url,it.refLink),stock:p.stock||"",checked:p.checked||"",kind:p.kind||"original",why:p.why||"",priceFrom:!!p.priceFrom};
 }
+const MAX_PRICE=parseFloat((document.querySelector('meta[name="wishbook-max-price"]')||{}).content)||Infinity;
+function overCap(v){return !!(v&&v.price>=MAX_PRICE);}
 function isBought(id){return !!(S.status[id]&&S.status[id].purchased);}
 function bandOk(v){
   const b=S.f.band;if(b==="all")return true;if(!v)return false;const p=v.price;
@@ -280,7 +283,7 @@ function bandOk(v){
 }
 function visibleItems(pid){
   return Object.entries(S.items).filter(([id,it])=>it.person===pid&&!isBought(id)).map(([id,it])=>({id,it,v:view(it)}))
-    .filter(o=>bandOk(o.v)&&(!S.f.sale||(o.v&&o.v.onSale)))
+    .filter(o=>!overCap(o.v)&&bandOk(o.v)&&(!S.f.sale||(o.v&&o.v.onSale)))
     .sort((a,b)=>(PRI_RANK[a.it.priority]??3)-(PRI_RANK[b.it.priority]??3)||((a.v?a.v.price:1e9)-(b.v?b.v.price:1e9)));
 }
 function itemNo(pid,id){
@@ -349,7 +352,7 @@ function renderCover(){
   const el=document.getElementById("cover");
   let best=null;
   for(const [id,it] of Object.entries(S.items)){
-    if(isBought(id))continue;const v=view(it);if(!v||!v.onSale)continue;
+    if(isBought(id))continue;const v=view(it);if(!v||!v.onSale||overCap(v))continue;
     if(!best||v.pct>best.v.pct||(v.pct===best.v.pct&&v.save>best.v.save))best={id,it,v};
   }
   if(!best){
