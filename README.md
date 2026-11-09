@@ -1,17 +1,33 @@
 # The Henschel Wish Book
 
-A public, magazine-style Christmas wish list for Alex, Maggie, Averie and Zach.
+A public, magazine-style Christmas wish list for Alex, Maggie, Averie, Zach and the household.
 
-- **The page** (`index.html` + `images/`) is a static site hosted on GitHub Pages. Anyone with the link can open it; no accounts needed.
-- **The data** lives in the private Google Sheet "Henschel Wish Book" in Alex's Drive. Edit gifts and sizes there; the page picks up changes on its next refresh.
-- **Purchases**: "I bought this" sends the item to the Sheet's private Purchases tab. The public page only learns that an item was bought, so it hides it. Buyer names and prices stay in the Sheet.
-- **Prices** are refreshed every morning by a scheduled Claude task that writes to the Sheet's gray columns.
+## How the system fits together
+
+The Google Sheet **"Henschel Wish Book"** is the single source of truth. Everything else reads from it or writes to it.
+
+| Piece | What it does | Reads | Writes |
+|---|---|---|---|
+| **This site** (`index.html`, GitHub Pages) | Catalog, Inspo corner per person, "Add a wish" uploader, "I bought this" | Items, People, Sizes, Profiles (rows ticked "Show on site"), Settings | Inbox, Profiles, Purchases (through Apps Script) |
+| **Apps Script** (`apps-script/Code.gs`, inside the Sheet) | The site's back end | the whole Sheet | Inbox, Profiles, Purchases, the Drive folder "Wish Book Inbox" |
+| **Daily price check** (scheduled Claude task, 5:37am ET) | Turns Inbox rows into Items, prices every item, flags clashes with Profiles | Items, Inbox, Profiles, Sizes, Purchases | Items (gray columns + new rows), Inbox status, Settings |
+| **Shopping Scout** (claude.ai page) | Swipe deck of new ideas built from Profiles | Profiles (copied in by Claude) | Loved cards go to the Inbox |
+| **Claude in chat** (`wish-book` skill) | Adds wishes, preferences and sizes on request | the Sheet | the Sheet |
+
+## Sheet tabs
+
+- **Inbox**: anything added from the site. Status: New → Added / Needs info / Skipped.
+- **Items**: green columns are yours; gray columns (Price onward) belong to the daily check.
+- **Profiles**: Person, Type, Value, Show on site. Types: Needs, Loves, Style, Colors, Avoid colors, Brands, Stores, Avoid, Allergies, Already owns, Notes.
+- **People**, **Sizes**: section headlines and sizes.
+- **Purchases**: private log. Tick Restored to put an item back.
+- **Settings**: `max_price` (items at or above it are hidden from the public site), `inbox_folder`, last price check.
 
 ## Connecting the page to the Sheet
 
 1. Open the Sheet, then **Extensions > Apps Script**.
 2. Replace everything in `Code.gs` with the contents of `apps-script/Code.gs`, then save.
-3. **Deploy > New deployment**, type **Web app**. Execute as: **Me**. Who has access: **Anyone**. Click **Deploy** and authorize.
-4. Copy the **Web app URL** (ends in `/exec`) and paste it into the `wishbook-api` tag near the top of `index.html`.
+3. **Project Settings > Script properties > Add script property**: `FAMILY_CODE` = the passcode family will use to add wishes and preferences. Without it, adding from the site stays off.
+4. **Deploy > Manage deployments > Edit (pencil) > Version: New version > Deploy.** Approve the new Google Drive permission (screenshots are saved to your Drive). The web app URL stays the same.
 
-If you later change `Code.gs`, use **Deploy > Manage deployments > Edit > New version** so the URL stays the same.
+First-time setup only: **Deploy > New deployment**, type **Web app**, Execute as **Me**, access **Anyone**, then paste the `/exec` URL into the `wishbook-api` tag near the top of `index.html`.

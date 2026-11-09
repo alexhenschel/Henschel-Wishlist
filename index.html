@@ -156,7 +156,19 @@ details.also ul{margin:6px 0 0;padding-left:18px}
 .colophon .wrap{padding-block:22px 40px;display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;color:var(--muted);font-size:13px}
 
 /* Owner view */
-.owner{padding-block:34px 20px;display:grid;gap:36px}
+.owner{padding-block:34px 20px;display:grid;gap:28px;max-width:860px}
+.inspo{margin:-6px 0 26px;border:1px solid var(--rule);background:var(--card);padding:16px 18px;display:grid;gap:12px}
+.inspo-top{display:flex;justify-content:space-between;gap:10px;align-items:baseline;flex-wrap:wrap}
+.inspo-top b{font-family:var(--display);font-size:20px;font-weight:700}
+.inspo-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px 22px}
+.inspo h4{margin:0 0 6px;font:500 11px var(--mono);text-transform:uppercase;letter-spacing:.12em;color:var(--muted)}
+.inspo ul{margin:0;padding:0;list-style:none;display:flex;flex-wrap:wrap;gap:6px}
+.inspo li{background:var(--chip);border-radius:999px;padding:3px 11px;font-size:14px;overflow-wrap:anywhere}
+.inspo li.no{background:transparent;border:1px solid var(--berry);color:var(--berry)}
+.inspo li.need{background:var(--spruce);color:var(--on-accent)}
+.inspo .hint{margin:0;color:var(--muted);font-size:13px}
+.tabs2{display:flex;gap:6px;flex-wrap:wrap}
+.preview{max-width:220px;max-height:220px;border:1px solid var(--rule);background:#fff}
 .owner h2{font-family:var(--display);font-weight:600;font-size:clamp(34px,5vw,54px);margin:0;line-height:1}
 .owner h3{font-family:var(--display);font-weight:600;font-size:26px;margin:0 0 12px}
 .panel{background:var(--card);border:1px solid var(--rule);padding:18px}
@@ -208,11 +220,11 @@ td.num{font-variant-numeric:tabular-nums;text-align:right}
       <option value="u25">Under $25</option>
       <option value="25-75">$25–75</option>
       <option value="75-150">$75–150</option>
-      <option value="150p">$150–250</option>
+      <option value="150p" id="bandTop">$150+</option>
     </select>
     <label class="toggle"><input type="checkbox" id="saleOnly"> On sale only</label>
     <span class="spacer"></span>
-    <a href="#my-list" class="owner-link" id="ownerLink" hidden>My List</a>
+    <a href="#add" class="owner-link" id="addLink">+ Add a wish</a>
     <a href="#" class="owner-link" id="catalogLink" hidden>Back to catalog</a>
   </div>
 </nav>
@@ -223,11 +235,11 @@ td.num{font-variant-numeric:tabular-nums;text-align:right}
   <div class="wrap" id="loadNote"></div>
 </main>
 
-<main id="owner" hidden></main>
+<main id="add" hidden></main>
 
 <footer class="colophon"><div class="wrap">
   <span>Sale prices appear only when the retailer's own page shows them. Each price shows when it was last checked.</span>
-  <span class="mono">Bought something? Tick “I bought this” so nobody doubles up.</span>
+  <span class="mono">Bought something? Tick “I bought this” so nobody doubles up. Spotted a gift idea? <a href="#add">Add a wish</a>.</span>
 </div></footer>
 
 <script>
@@ -237,9 +249,10 @@ const PEOPLE_ORDER=["alex","maggie","averie","zach","household"];
 const MODES={exact:"Exact match only",like:"Like brands OK",any:"Any brand, best deal"};
 const PRIORITY={must:"Must-have",love:"Would love",fun:"Fun extra"};
 const PRI_RANK={must:0,love:1,fun:2};
-const S={people:{},items:{},status:{},meta:null,purch:{},isOwner:false,uid:null,
-  f:{person:"all",band:"all",sale:false},got:{items:false,people:false},pending:{},editing:null,confirmDel:null,timedOut:false};
-let DB=null;
+const S={people:{},items:{},status:{},profiles:{},meta:null,
+  f:{person:"all",band:"all",sale:false},got:{items:false,people:false},pending:{},timedOut:false,
+  add:{tab:"wish",person:"",busy:false,msg:"",err:"",img:null}};
+const store={get(k){try{return localStorage.getItem(k)||"";}catch(e){return "";}},set(k,v){try{localStorage.setItem(k,v);}catch(e){}}};
 
 const ICONS={
   saw:'<path d="M6 40h30l8-6h14v12H44l-8-6"/><path d="M10 40v8h22v-8"/><path d="M44 34V22l8-6"/><circle cx="18" cy="44" r="0"/><path d="M8 36l4-4M14 36l4-4M20 36l4-4M26 36l4-4"/>',
@@ -274,8 +287,9 @@ function view(it){
   if(Array.isArray(it.history)){const now=Date.now();for(const h of it.history){const t=new Date(h.date).getTime();if(now-t>=6.5*864e5&&now-t<=14*864e5&&Number(h.price)>price){drop=true;break;}}}
   return {price,reg,onSale,save,pct,drop,name:p.name||it.name,retailer:p.retailer||"",url:bestUrl(p.url,it.refLink),stock:p.stock||"",checked:p.checked||"",kind:p.kind||"original",why:p.why||"",priceFrom:!!p.priceFrom};
 }
-const MAX_PRICE=parseFloat((document.querySelector('meta[name="wishbook-max-price"]')||{}).content)||Infinity;
-function overCap(v){return !!(v&&v.price>=MAX_PRICE);}
+const META_MAX=parseFloat((document.querySelector('meta[name="wishbook-max-price"]')||{}).content)||Infinity;
+function maxPrice(){const m=S.meta&&S.meta.maxPrice;return m>0?m:META_MAX;}
+function overCap(v){return !!(v&&v.price>=maxPrice());}
 function isBought(id){return !!(S.status[id]&&S.status[id].purchased);}
 function bandOk(v){
   const b=S.f.band;if(b==="all")return true;if(!v)return false;const p=v.price;
@@ -344,7 +358,7 @@ function cardHtml(o){
     h+='<div class="denied">That didn’t go through. Check your connection and try again, or let Alex know you bought it. <button class="btn ghost" data-action="cancel" data-id="'+esc(id)+'" style="margin-top:8px">OK</button></div>';
   }
   h+='<div class="actions">'+(v&&v.url?'<a class="buy" href="'+esc(v.url)+'" target="_blank" rel="noopener">Buy'+(v.retailer?' at '+esc(v.retailer):'')+' →</a>':(safeUrl(it.refLink)?'<a class="buy" href="'+esc(safeUrl(it.refLink))+'" target="_blank" rel="noopener">See the item →</a>':'<span></span>'))+
-     '<label class="bought"><input type="checkbox" id="bought-'+esc(id)+'" data-action="bought" data-id="'+esc(id)+'"'+(pend?' checked':'')+'> I bought this</label>'+(S.isOwner?'<span class="owner-tools"><button class="linkbtn" data-action="editCard" data-id="'+esc(id)+'">Edit</button><button class="linkbtn" data-action="remove" data-id="'+esc(id)+'">Remove</button></span>':'')+'</div>';
+     '<label class="bought"><input type="checkbox" id="bought-'+esc(id)+'" data-action="bought" data-id="'+esc(id)+'"'+(pend?' checked':'')+'> I bought this</label></div>';
   h+='</div></article>';
   return h;
 }
@@ -373,6 +387,15 @@ function fitHtml(p){
   return '<div class="fit"><div class="fit-top"><b>Sizes</b><span class="mono">'+(p.sizesUpdated?'Updated '+esc(day(p.sizesUpdated)):'Not added yet')+'</span></div><dl>'+
     sizes.map(s=>'<div><dt>'+esc(s.label)+'</dt><dd class="'+(s.value?"":"blank")+'">'+(s.value?esc(s.value):"—")+'</dd></div>').join("")+'</dl></div>';
 }
+const INSPO=[["Needs",["Needs"],"need"],["Loves",["Loves","Style"],""],["Colors",["Colors"],""],["Brands & stores",["Brands","Stores"],""],["Skip",["Avoid","Avoid colors","Allergies"],"no"],["Already has",["Already owns"],""],["Good to know",["Notes"],""]];
+function inspoHtml(pid,p){
+  const rows=(S.profiles[pid]||[]).filter(r=>r&&r.value);
+  const groups=INSPO.map(([label,types,cls])=>[label,rows.filter(r=>types.includes(r.type)).map(r=>r.type==="Avoid colors"?"No "+r.value.toLowerCase():r.value),cls]).filter(g=>g[1].length);
+  const add=S.meta&&S.meta.adding?'<a href="#add" data-action="addPref" data-id="'+esc(pid)+'" class="linkbtn">Add an idea</a>':'';
+  if(!groups.length)return add?'<div class="inspo"><div class="inspo-top"><b>Inspo corner</b>'+add+'</div><p class="hint">No preferences yet. Shopping on your own? Add what '+esc(p.name)+' likes so everyone can see it.</p></div>':'';
+  return '<div class="inspo"><div class="inspo-top"><b>Inspo corner</b><span class="mono">Shopping on your own? Start here. '+add+'</span></div><div class="inspo-grid">'+
+    groups.map(([label,vals,cls])=>'<div><h4>'+esc(label)+'</h4><ul>'+vals.map(v=>'<li class="'+cls+'">'+esc(v)+'</li>').join("")+'</ul></div>').join("")+'</div></div>';
+}
 function renderSections(){
   const box=document.getElementById("sections");
   const pids=PEOPLE_ORDER.filter(pid=>S.people[pid]).concat(Object.keys(S.people).filter(k=>!PEOPLE_ORDER.includes(k)));
@@ -381,7 +404,7 @@ function renderSections(){
   for(const pid of pids){
     if(S.f.person!=="all"&&S.f.person!==pid)continue;
     const p=S.people[pid];const list=visibleItems(pid);
-    h+='<section class="section" id="sec-'+esc(pid)+'" aria-label="'+esc(p.name)+'"><div class="sec-head"><div><p class="eyebrow">Section '+esc(p.order||"")+'</p><h2>'+esc(p.name)+(p.age?'<span class="age">age '+esc(p.age)+'</span>':'')+'</h2>'+(p.headline?'<p class="headline">'+esc(p.headline)+'</p>':'')+'</div>'+fitHtml(p)+'</div>';
+    h+='<section class="section" id="sec-'+esc(pid)+'" aria-label="'+esc(p.name)+'"><div class="sec-head"><div><p class="eyebrow">Section '+esc(p.order||"")+'</p><h2>'+esc(p.name)+(p.age?'<span class="age">age '+esc(p.age)+'</span>':'')+'</h2>'+(p.headline?'<p class="headline">'+esc(p.headline)+'</p>':'')+'</div>'+fitHtml(p)+'</div>'+inspoHtml(pid,p);
     h+=list.length?'<div class="grid">'+list.map(cardHtml).join("")+'</div>':'<div class="empty">'+(S.f.sale||S.f.band!=="all"?"Nothing here matches these filters.":"Everything on "+esc(p.name)+"’s list has been bought.")+'</div>';
     h+='</section>';
   }
@@ -397,70 +420,61 @@ function renderMeta(){
   el.textContent=S.meta&&S.meta.lastRun?"Prices checked "+when(S.meta.lastRun):"Prices checked daily";
 }
 
-/* ---------- owner view ---------- */
-function purchaseRows(){
-  const rows=[];const seen=new Set();
-  for(const [uid,doc] of Object.entries(S.purch)){
-    const e=doc&&doc.entries||{};
-    for(const [iid,en] of Object.entries(e)){if(en.restored)continue;rows.push({uid,iid,...en});seen.add(iid);}
+/* ---------- add a wish ---------- */
+const PREF_TYPES=["Needs","Loves","Style","Colors","Avoid colors","Brands","Stores","Avoid","Allergies","Already owns"];
+function peopleIds(){return PEOPLE_ORDER.filter(pid=>S.people[pid]).concat(Object.keys(S.people).filter(k=>!PEOPLE_ORDER.includes(k)));}
+function renderAdd(){
+  const el=document.getElementById("add");const A=S.add;
+  const kept={};if(!A.clear)el.querySelectorAll("input:not([type=file]),textarea,select").forEach(n=>{if(n.id)kept[n.id]=n.value;});A.clear=false;
+  const ids=peopleIds();if(!A.person)A.person=ids[0]||"";
+  const who='<div class="field"><label for="a-person">For</label><select id="a-person">'+ids.map(pid=>'<option value="'+esc(pid)+'"'+(pid===A.person?' selected':'')+'>'+esc(S.people[pid].name)+'</option>').join("")+'</select></div>';
+  const code='<div class="field"><label for="a-code">Family passcode</label><input id="a-code" type="password" autocomplete="current-password" value="'+esc(store.get("wb-code"))+'"></div>';
+  const by='<div class="field"><label for="a-by">Your name</label><input id="a-by" maxlength="60" autocomplete="name" value="'+esc(store.get("wb-name"))+'"></div>';
+  let h='<div class="wrap owner"><div><p class="eyebrow">Wish List Uploader</p><h2>Add to the Wish Book</h2><p class="meta" style="font-size:15px;margin-top:8px">Paste a product link or upload a screenshot. It goes into the Sheet’s Inbox, and the next morning’s check turns it into a priced item on the list.</p></div>';
+  if(S.got.items&&!(S.meta&&S.meta.adding)){h+='<div class="notice">Adding from the site switches on once Alex sets the family passcode. Until then, send ideas to Alex.</div></div>';el.innerHTML=h;return;}
+  h+='<div class="tabs2" role="tablist"><button class="chip" role="tab" data-action="addTab" data-id="wish" aria-pressed="'+(A.tab==="wish")+'">A gift idea</button><button class="chip" role="tab" data-action="addTab" data-id="pref" aria-pressed="'+(A.tab==="pref")+'">A preference</button></div>';
+  if(A.tab==="wish"){
+    h+='<section class="panel"><form id="wishForm" class="formgrid">'+who+by+
+      '<div class="field full"><label for="a-link">Product link</label><input id="a-link" type="url" inputmode="url" placeholder="https://" maxlength="1000"></div>'+
+      '<div class="field full"><label for="a-shot">Or a screenshot</label><input id="a-shot" type="file" accept="image/*">'+(A.img?'<img class="preview" alt="Screenshot preview" src="'+A.img.url+'">':'')+'</div>'+
+      '<div class="field full"><label for="a-note">Notes: size, color, “like this but cheaper”…</label><textarea id="a-note" rows="3" maxlength="500"></textarea></div>'+
+      code+'<div class="btns full"><button class="btn" type="submit"'+(A.busy?' disabled':'')+'>'+(A.busy?"Sending…":"Add to the Inbox")+'</button></div></form></section>';
+  }else{
+    h+='<section class="panel"><form id="prefForm" class="formgrid">'+who+
+      '<div class="field"><label for="a-type">Type</label><select id="a-type">'+PREF_TYPES.map(t=>'<option>'+esc(t)+'</option>').join("")+'</select></div>'+
+      '<div class="field full"><label for="a-val">What to add</label><input id="a-val" maxlength="200" placeholder="e.g. Cozy socks, Earth tones, Patagonia"></div>'+
+      code+'<div class="btns full"><button class="btn" type="submit"'+(A.busy?' disabled':'')+'>'+(A.busy?"Saving…":"Add to the Inspo corner")+'</button></div></form>'+
+      '<p class="meta" style="margin-top:10px">Shows on the site right away. Alex can hide anything from the Sheet’s Profiles tab.</p></section>';
   }
-  for(const [iid,st] of Object.entries(S.status)){
-    if(st.purchased&&!seen.has(iid)){const it=S.items[iid]||{};rows.push({uid:null,iid,item:it.name||"(removed item)",recipient:it.person,at:st.at,buyerName:"",pricePaid:null,retailer:""});}
-  }
-  return rows.sort((a,b)=>String(b.at||"").localeCompare(String(a.at||"")));
+  if(A.msg)h+='<div class="notice" role="status">'+esc(A.msg)+' <a href="#">Back to the catalog</a></div>';
+  if(A.err)h+='<div class="denied" role="alert">'+esc(A.err)+'</div>';
+  el.innerHTML=h+'</div>';
+  for(const [k,v] of Object.entries(kept)){const n=document.getElementById(k);if(n&&k!=="a-person")n.value=v;}
 }
-function renderOwner(){
-  const el=document.getElementById("owner");
-  if(!S.isOwner){el.innerHTML='<div class="wrap owner"><div class="notice">My List is only visible to Alex. <a href="#">Back to the catalog</a></div></div>';return;}
-  const rows=purchaseRows();
-  const totals={};for(const pid of PEOPLE_ORDER)totals[pid]={sum:0,n:0};
-  for(const r of rows){if(!totals[r.recipient])totals[r.recipient]={sum:0,n:0};totals[r.recipient].n++;if(r.pricePaid)totals[r.recipient].sum+=Number(r.pricePaid);}
-  const nm=pid=>(S.people[pid]&&S.people[pid].name)||pid||"—";
-  let h='<div class="wrap owner"><div><p class="eyebrow">Only you can see this page</p><h2>My List</h2></div>';
-  h+='<section class="panel"><h3>Purchase log</h3><div class="totals">'+Object.entries(totals).filter(([pid])=>S.people[pid]).map(([pid,t])=>'<div class="total"><span class="eyebrow">'+esc(nm(pid))+'</span><b>'+money(t.sum)+'</b><span class="meta">'+t.n+' bought</span></div>').join("")+'</div>';
-  h+=rows.length?'<div class="tablewrap"><table><thead><tr><th>Date</th><th>Item</th><th>For</th><th>Bought by</th><th>Store</th><th style="text-align:right">Paid</th><th></th></tr></thead><tbody>'+rows.map(r=>'<tr><td>'+esc(day(r.at))+'</td><td>'+esc(r.pick&&r.pick!==r.item?r.item+" → "+r.pick:r.item)+'</td><td>'+esc(nm(r.recipient))+'</td><td>'+esc(r.buyerName||"Not given")+'</td><td>'+esc(r.retailer||"")+'</td><td class="num">'+(r.pricePaid?money(r.pricePaid):"—")+'</td><td><button class="btn ghost" data-action="restore" data-id="'+esc(r.iid)+'" data-uid="'+esc(r.uid||"")+'">Put back on list</button></td></tr>').join("")+'</tbody></table></div>':'<p class="meta">Nothing bought yet. Purchases show up here the moment someone checks an item off.</p>';
-  h+='</section>';
-
-  const e=S.editing?S.items[S.editing]||{}:{};
-  const opt=(o,sel)=>Object.entries(o).map(([k,l])=>'<option value="'+esc(k)+'"'+(k===sel?' selected':'')+'>'+esc(l)+'</option>').join("");
-  const cats={gift:"General",saw:"Tools",jacket:"Clothing",boot:"Shoes & boots",earbuds:"Tech",pot:"Kitchen",blanket:"Home",bricks:"Building sets",tiles:"Toys",art:"Art & crafts",bike:"Ride-ons & bikes"};
-  h+='<section class="panel"><h3>'+(S.editing?"Edit item":"Add an item")+'</h3><form id="itemForm" class="formgrid">'+
-    '<div class="field"><label for="f-person">For</label><select id="f-person">'+opt(Object.fromEntries(PEOPLE_ORDER.filter(p=>S.people[p]).map(p=>[p,nm(p)])),e.person||"alex")+'</select></div>'+
-    '<div class="field"><label for="f-cat">Category</label><select id="f-cat">'+opt(cats,e.category||"gift")+'</select></div>'+
-    '<div class="field full"><label for="f-name">Item</label><input id="f-name" required maxlength="140" value="'+esc(e.name||"")+'" placeholder="e.g. Le Creuset 5.5 qt Dutch oven"></div>'+
-    '<div class="field full"><label for="f-link">Link (optional)</label><input id="f-link" type="url" value="'+esc(e.refLink||"")+'" placeholder="https://"></div>'+
-    '<div class="field"><label for="f-mode">Match</label><select id="f-mode">'+opt(MODES,e.mode||"exact")+'</select></div>'+
-    '<div class="field"><label for="f-pri">Priority</label><select id="f-pri">'+opt(PRIORITY,e.priority||"love")+'</select></div>'+
-    '<div class="field"><label for="f-budget">Max budget (optional)</label><input id="f-budget" inputmode="decimal" value="'+esc(e.budget||"")+'" placeholder="$"></div>'+
-    '<div class="field"><label for="f-notes">Size, color or spec notes</label><input id="f-notes" maxlength="200" value="'+esc(e.notes||"")+'"></div>'+
-    '<div class="field full"><label for="f-photo">Photo (optional)</label><input id="f-photo" type="file" accept="image/*">'+(e.image?'<span class="meta">This item has a photo. Choose a new file to replace it.</span>':'')+'</div>'+
-    '<div class="btns full"><button class="btn" type="submit">'+(S.editing?"Save changes":"Add to list")+'</button>'+(S.editing?'<button class="btn ghost" type="button" data-action="cancelEdit">Cancel</button>':'')+'</div></form>'+
-    '<p class="meta" style="margin-top:10px">New items show “Price check pending” until the next morning’s price check. You can also add items by telling Claude in chat.</p></section>';
-
-  const all=Object.entries(S.items).sort((a,b)=>PEOPLE_ORDER.indexOf(a[1].person)-PEOPLE_ORDER.indexOf(b[1].person)||String(a[1].name).localeCompare(String(b[1].name)));
-  h+='<section class="panel"><h3>All items</h3><div class="tablewrap"><table><thead><tr><th></th><th>For</th><th>Item</th><th>Match</th><th style="text-align:right">Price</th><th>Status</th></tr></thead><tbody>'+
-    all.map(([id,it])=>{const v=view(it);return '<tr><td><div class="btns" style="flex-wrap:nowrap"><button class="btn ghost" data-action="edit" data-id="'+esc(id)+'">Edit</button><button class="btn ghost" data-action="remove" data-id="'+esc(id)+'">Remove</button></div></td><td>'+esc(nm(it.person))+'</td><td>'+esc(it.name)+(it.example?' <span class="badge example">Example</span>':'')+'</td><td>'+esc(MODES[it.mode]||"")+'</td><td class="num">'+(v?money(v.price):"—")+'</td><td>'+(isBought(id)?"Bought":v?"Listed":"Pending")+'</td></tr>';}).join("")+'</tbody></table></div></section>';
-
-  h+='<section class="panel"><h3>Sizes</h3><div class="sizes-grid">'+PEOPLE_ORDER.filter(p=>S.people[p]).map(pid=>{const p=S.people[pid];return '<form class="field" data-sizes="'+esc(pid)+'" style="gap:8px"><b style="font-family:var(--display);font-size:20px">'+esc(p.name)+'</b>'+(p.sizes||[]).map((s,i)=>'<div class="field"><label for="sz-'+esc(pid)+'-'+i+'">'+esc(s.label)+'</label><input id="sz-'+esc(pid)+'-'+i+'" data-label="'+esc(s.label)+'" value="'+esc(s.value||"")+'" maxlength="40"></div>').join("")+'<div class="btns"><button class="btn" type="submit">Save '+esc(p.name)+'’s sizes</button></div></form>';}).join("")+'</div></section></div>';
-  el.innerHTML=h;
-}
+function shrink(file){return new Promise((res,rej)=>{
+  const fr=new FileReader();fr.onerror=rej;fr.onload=()=>{const img=new Image();img.onerror=rej;img.onload=()=>{
+    const k=Math.min(1,1600/Math.max(img.width,img.height));const c=document.createElement("canvas");c.width=Math.round(img.width*k);c.height=Math.round(img.height*k);
+    c.getContext("2d").drawImage(img,0,0,c.width,c.height);const url=c.toDataURL("image/jpeg",.85);res({url,data:url.split(",")[1],mime:"image/jpeg",name:(file.name||"screenshot").replace(/\.[^.]+$/,"")+".jpg"});};img.src=fr.result;};fr.readAsDataURL(file);});}
+const ERRS={bad_code:"That passcode didn’t work. Check with Alex.",unknown_person:"Pick who it’s for.",bad_link:"That link should start with https://",empty:"Add a link, a screenshot or a note first.",image_too_big:"That screenshot is too large. Try a smaller one.",bad_pref:"Add something to save first."};
+async function post(body){const r=await fetch(API_URL,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify(body)});return r.json();}
 
 /* ---------- render orchestration ---------- */
 function render(){
   const a=document.activeElement;const aid=a&&a.id;let ss=null,se=null;
   try{if(a&&"selectionStart" in a){ss=a.selectionStart;se=a.selectionEnd;}}catch(e){}
-  const ownerMode=location.hash==="#my-list"&&S.isOwner;
+  const ownerMode=location.hash==="#add";
   document.getElementById("catalog").hidden=ownerMode;
-  document.getElementById("owner").hidden=!ownerMode;
-  document.getElementById("ownerLink").hidden=!S.isOwner||ownerMode;
+  document.getElementById("add").hidden=!ownerMode;
+  document.getElementById("addLink").hidden=ownerMode;
   document.getElementById("catalogLink").hidden=!ownerMode;
   document.getElementById("personChips").hidden=ownerMode;
   document.getElementById("band").hidden=ownerMode;
   document.getElementById("saleOnly").parentElement.hidden=ownerMode;
   renderMeta();
-  if(ownerMode)renderOwner();else{renderChips();renderCover();renderSections();}
+  const mp=maxPrice();document.getElementById("bandTop").textContent=isFinite(mp)?"$150–"+Math.round(mp):"$150+";
+  if(ownerMode)renderAdd();else{renderChips();renderCover();renderSections();}
   const ln=document.getElementById("loadNote");
-  ln.innerHTML=S.noApi?'<div class="notice">This page isn’t connected to its Google Sheet yet. Add the Apps Script web app URL to the wishbook-api tag at the top of index.html.</div>':S.loadError?'<div class="notice">The latest list couldn’t be loaded. Showing what was loaded last; it will refresh automatically.</div>':S.timedOut&&!S.got.items?'<div class="notice">The list can’t be reached right now. It will appear as soon as the connection comes back.</div>':(!DB&&S.noDb?'<div class="notice">Sign in to claude.ai to see the wish list.</div>':'');
+  ln.innerHTML=S.noApi?'<div class="notice">This page isn’t connected to its Google Sheet yet. Add the Apps Script web app URL to the wishbook-api tag at the top of index.html.</div>':S.loadError?'<div class="notice">The latest list couldn’t be loaded. Showing what was loaded last; it will refresh automatically.</div>':S.timedOut&&!S.got.items?'<div class="notice">The list can’t be reached right now. It will appear as soon as the connection comes back.</div>':'';
   if(aid){const n=document.getElementById(aid);if(n&&n!==document.activeElement){n.focus({preventScroll:true});try{if(ss!=null)n.setSelectionRange(ss,se);}catch(e){}}}
 }
 function toastUndo(msg){document.querySelectorAll(".toast").forEach(x=>x.remove());const t=document.createElement("div");t.className="toast";t.setAttribute("role","status");const s=document.createElement("span");s.textContent=msg;const b=document.createElement("button");b.className="toast-undo";b.dataset.action="undoRemove";b.textContent="Undo";t.append(s,b);document.body.appendChild(t);setTimeout(()=>t.remove(),9000);}
@@ -498,18 +512,8 @@ document.addEventListener("click",async ev=>{
   else if(a==="cancel"){delete S.pending[id];render();}
   else if(a==="undo"){const p=S.pending[id];if(p&&p.timer)clearInterval(p.timer);delete S.pending[id];render();toast("Undone");}
   else if(a==="jump"){const c=document.getElementById("card-"+id);if(c)c.scrollIntoView({behavior:"smooth",block:"center"});}
-  else if(a==="restore"&&DB){
-    t.disabled=true;
-    try{await DB.doc("status/"+id).delete();if(t.dataset.uid){try{await DB.doc("purchases/"+t.dataset.uid).update({entries:{[id]:{restored:true,restoredAt:new Date().toISOString()}}});}catch(e){}}toast("Back on the list");}
-    catch(e){toast("Couldn’t restore it. Try again.");t.disabled=false;}
-  }
-  else if(a==="edit"){S.editing=id;S.confirmDel=null;render();const f=document.getElementById("f-name");if(f){f.scrollIntoView({block:"center"});f.focus();}}
-  else if(a==="cancelEdit"){S.editing=null;render();}
-  else if(a==="remove"&&DB){const it=S.items[id];if(!it)return;const copy=JSON.parse(JSON.stringify(it));t.disabled=true;
-    try{await DB.doc("items/"+id).delete();S.lastRemoved={id,copy};toastUndo("Removed “"+(copy.name||"item")+"”");}
-    catch(e){t.disabled=false;toast("Couldn’t remove it. Make sure you’re signed in as Alex, then try again.");}}
-  else if(a==="undoRemove"&&DB){const r=S.lastRemoved;if(!r)return;t.disabled=true;try{await DB.doc("items/"+r.id).set(r.copy);S.lastRemoved=null;const tt=t.closest(".toast");if(tt)tt.remove();toast("Restored");}catch(e){t.disabled=false;toast("Couldn’t restore it.");}}
-  else if(a==="editCard"){S.editing=id;location.hash="my-list";setTimeout(()=>{const f=document.getElementById("f-name");if(f){f.scrollIntoView({block:"center"});f.focus();}},50);}
+  else if(a==="addTab"){S.add.tab=id;S.add.msg=S.add.err="";render();}
+  else if(a==="addPref"){S.add.tab="pref";S.add.person=id;S.add.msg=S.add.err="";}
 });
 document.addEventListener("input",ev=>{
   const t=ev.target;if(t.dataset&&t.dataset.pf){const p=S.pending[t.dataset.id];if(p)p[t.dataset.pf]=t.value;}
@@ -518,26 +522,34 @@ document.getElementById("band").addEventListener("change",e=>{S.f.band=e.target.
 document.getElementById("saleOnly").addEventListener("change",e=>{S.f.sale=e.target.checked;render();});
 document.getElementById("catalogLink").addEventListener("click",e=>{e.preventDefault();history.replaceState(null,"",location.pathname+location.search);render();window.scrollTo(0,0);});
 window.addEventListener("hashchange",()=>{render();window.scrollTo(0,0);});
+document.addEventListener("change",async ev=>{
+  const t=ev.target;
+  if(t.id==="a-person")S.add.person=t.value;
+  if(t.id==="a-shot"){const f=t.files&&t.files[0];S.add.err="";
+    if(!f){S.add.img=null;return;}
+    try{S.add.img=await shrink(f);}catch(e){S.add.img=null;S.add.err="Couldn’t read that image. Try a PNG or JPG.";}
+    render();}
+});
 document.addEventListener("submit",async ev=>{
-  ev.preventDefault();if(!DB)return;
-  const f=ev.target;
-  if(f.id==="itemForm"){
-    const g=id=>document.getElementById(id).value.trim();
-    const name=g("f-name");if(!name){toast("Add an item name first.");return;}
-    const data={person:g("f-person"),category:g("f-cat"),name,refLink:safeUrl(g("f-link")),mode:g("f-mode"),priority:g("f-pri"),budget:parseFloat(g("f-budget").replace(/[^0-9.]/g,""))||null,notes:g("f-notes")};
-    const fileEl=document.getElementById("f-photo");const file=fileEl&&fileEl.files&&fileEl.files[0];
-    if(file){const assets=await window.claude.use("assets");if(!assets){toast("Photo uploads aren’t available here.");return;}
-      try{toast("Uploading photo…");const r=await assets.upload(file);data.image=r.url;data.imageId=r.id;}catch(err){toast("Couldn’t upload that photo. Try a JPG or PNG under 20 MB.");return;}}
-    try{
-      if(S.editing){await DB.doc("items/"+S.editing).update({...data,example:false});S.editing=null;toast("Saved");}
-      else{const id=name.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"").slice(0,40)+"-"+Math.random().toString(36).slice(2,6);
-        await DB.doc("items/"+id).set({...data,example:false,added:new Date().toISOString(),pick:null,history:[]});toast("Added. Its price arrives with the next daily check.");}
-      f.reset();
-    }catch(e){toast("Couldn’t save. Try again.");}
-  }else if(f.dataset.sizes){
-    const pid=f.dataset.sizes;const sizes=[...f.querySelectorAll("input[data-label]")].map(i=>({label:i.dataset.label,value:i.value.trim()}));
-    try{await DB.doc("people/"+pid).update({sizes,sizesUpdated:new Date().toISOString()});toast("Sizes saved");}catch(e){toast("Couldn’t save sizes. Try again.");}
-  }
+  ev.preventDefault();
+  const f=ev.target;const A=S.add;const g=id=>{const n=document.getElementById(id);return n?n.value.trim():"";};
+  if(f.id!=="wishForm"&&f.id!=="prefForm")return;
+  if(!API_URL||S.noApi){A.err="The site isn’t connected to the Sheet yet.";render();return;}
+  const code=g("a-code");if(!code){A.err="Enter the family passcode.";render();return;}
+  const body=f.id==="wishForm"
+    ?{action:"add_wish",code,person:g("a-person"),addedBy:g("a-by"),link:safeUrl(g("a-link")),note:g("a-note"),image:A.img?{name:A.img.name,mime:A.img.mime,data:A.img.data}:null}
+    :{action:"add_pref",code,person:g("a-person"),type:g("a-type"),value:g("a-val")};
+  if(f.id==="wishForm"&&g("a-link")&&!body.link){A.err=ERRS.bad_link;render();return;}
+  if(f.id==="wishForm"&&!body.link&&!body.image&&!body.note){A.err=ERRS.empty;render();return;}
+  A.busy=true;A.err=A.msg="";render();
+  try{
+    const d=await post(body);if(!d.ok)throw new Error(d.error||"failed");
+    store.set("wb-code",code);if(body.addedBy)store.set("wb-name",body.addedBy);
+    const nm=(S.people[body.person]||{}).name||"them";
+    A.img=null;A.clear=true;A.msg=f.id==="wishForm"?"Added to the Inbox for "+nm+". It shows up on the list after tomorrow morning’s check.":"Added to "+nm+"’s Inspo corner.";
+    if(f.id==="prefForm")load(false);
+  }catch(e){A.err=ERRS[e.message]||"That didn’t go through. Check your connection and try again.";}
+  A.busy=false;render();
 });
 
 /* ---------- boot: load from the Google Sheet ---------- */
@@ -552,15 +564,16 @@ async function load(first){
     const items={};(d.items||[]).forEach(it=>{items[it.id]=it;});
     const people={};(d.people||[]).forEach(p=>{people[p.id]=p;});
     const status={};(d.purchased||[]).forEach(id=>{status[id]={purchased:true};});
-    S.items=items;S.people=people;S.status=status;S.meta=d.meta||null;
+    S.items=items;S.people=people;S.status=status;S.meta=d.meta||null;S.profiles=d.profiles||{};
     S.got.items=S.got.people=true;S.timedOut=false;S.loadError=false;
   }catch(e){S.loadError=true;}
   if(timer)clearTimeout(timer);
   render();
 }
 load(true);
-setInterval(()=>{if(!document.hidden&&!Object.keys(S.pending).length)load(false);},60000);
-document.addEventListener("visibilitychange",()=>{if(!document.hidden)load(false);});
+const busy=()=>Object.keys(S.pending).length||location.hash==="#add";
+setInterval(()=>{if(!document.hidden&&!busy())load(false);},60000);
+document.addEventListener("visibilitychange",()=>{if(!document.hidden&&!busy())load(false);});
 })();
 </script>
 </body>
