@@ -404,7 +404,7 @@ function renderSections(){
   for(const pid of pids){
     if(S.f.person!=="all"&&S.f.person!==pid)continue;
     const p=S.people[pid];const list=visibleItems(pid);
-    h+='<section class="section" id="sec-'+esc(pid)+'" aria-label="'+esc(p.name)+'"><div class="sec-head"><div><p class="eyebrow">Section '+esc(p.order||"")+'</p><h2>'+esc(p.name)+(p.age?'<span class="age">age '+esc(p.age)+'</span>':'')+'</h2>'+(p.headline?'<p class="headline">'+esc(p.headline)+'</p>':'')+'</div>'+fitHtml(p)+'</div>'+inspoHtml(pid,p);
+    h+='<section class="section" id="sec-'+esc(pid)+'" aria-label="'+esc(p.name)+'"><div class="sec-head"><div><p class="eyebrow">Section '+esc(p.order||"")+'</p><h2>'+esc(p.name)+(p.age?'<span class="age">age '+esc(p.age)+'</span>':'')+'</h2>'+(p.headline?'<p class="headline">'+esc(p.headline)+'</p>':'')+'</div>'+fitHtml(p)+'</div>'+(S.f.person===pid?inspoHtml(pid,p):'');
     h+=list.length?'<div class="grid">'+list.map(cardHtml).join("")+'</div>':'<div class="empty">'+(S.f.sale||S.f.band!=="all"?"Nothing here matches these filters.":"Everything on "+esc(p.name)+"’s list has been bought.")+'</div>';
     h+='</section>';
   }
