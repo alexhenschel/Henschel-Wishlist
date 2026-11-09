@@ -256,6 +256,8 @@ const ICONS={
 function icon(cat){return '<svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+(ICONS[cat]||ICONS.gift)+'</svg>';}
 function plateArt(it){const u=String(it.image||"");return (/^https:\/\//.test(u)||/^images\/[\w.-]+$/.test(u))?'<img src="'+esc(u)+'" alt="'+esc(it.name)+'" loading="lazy">':icon(it.category);}
 function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
+function isListing(u){return /amazon\.[a-z.]+\/s[?\/]|[?&]k=|\/c\/|\/search|\/s\/[^/]+$/i.test(String(u||""));}
+function bestUrl(u,ref){u=safeUrl(u);ref=safeUrl(ref);return (!u||isListing(u))&&ref&&!isListing(ref)?ref:(u||ref);}
 function safeUrl(u){u=String(u||"");return /^https?:\/\//i.test(u)?u:"";}
 function money(n){if(n==null||isNaN(n))return "";const v=Number(n);return "$"+v.toLocaleString("en-US",{minimumFractionDigits:v%1?2:0,maximumFractionDigits:2});}
 function when(iso){if(!iso)return "";const d=new Date(iso);if(isNaN(d))return "";return d.toLocaleString("en-US",{month:"short",day:"numeric",hour:"numeric",minute:"2-digit"});}
@@ -269,7 +271,7 @@ function view(it){
   const save=onSale?reg-price:0;const pct=onSale?Math.round(save/reg*100):0;
   let drop=false;
   if(Array.isArray(it.history)){const now=Date.now();for(const h of it.history){const t=new Date(h.date).getTime();if(now-t>=6.5*864e5&&now-t<=14*864e5&&Number(h.price)>price){drop=true;break;}}}
-  return {price,reg,onSale,save,pct,drop,name:p.name||it.name,retailer:p.retailer||"",url:safeUrl(p.url),stock:p.stock||"",checked:p.checked||"",kind:p.kind||"original",why:p.why||"",priceFrom:!!p.priceFrom};
+  return {price,reg,onSale,save,pct,drop,name:p.name||it.name,retailer:p.retailer||"",url:bestUrl(p.url,it.refLink),stock:p.stock||"",checked:p.checked||"",kind:p.kind||"original",why:p.why||"",priceFrom:!!p.priceFrom};
 }
 function isBought(id){return !!(S.status[id]&&S.status[id].purchased);}
 function bandOk(v){
