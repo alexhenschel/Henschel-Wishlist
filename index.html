@@ -233,7 +233,7 @@ td.num{font-variant-numeric:tabular-nums;text-align:right}
 <script>
 (function(){
 "use strict";
-const PEOPLE_ORDER=["alex","maggie","averie","zach"];
+const PEOPLE_ORDER=["alex","maggie","averie","zach","household"];
 const MODES={exact:"Exact match only",like:"Like brands OK",any:"Any brand, best deal"};
 const PRIORITY={must:"Must-have",love:"Would love",fun:"Fun extra"};
 const PRI_RANK={must:0,love:1,fun:2};
@@ -369,6 +369,7 @@ function renderCover(){
 }
 function fitHtml(p){
   const sizes=Array.isArray(p.sizes)?p.sizes:[];
+  if(!sizes.length)return '<div></div>';
   return '<div class="fit"><div class="fit-top"><b>Sizes</b><span class="mono">'+(p.sizesUpdated?'Updated '+esc(day(p.sizesUpdated)):'Not added yet')+'</span></div><dl>'+
     sizes.map(s=>'<div><dt>'+esc(s.label)+'</dt><dd class="'+(s.value?"":"blank")+'">'+(s.value?esc(s.value):"—")+'</dd></div>').join("")+'</dl></div>';
 }
