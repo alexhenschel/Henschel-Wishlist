@@ -7,7 +7,7 @@
 <meta name="wishbook-api" content="https://script.google.com/macros/s/AKfycbz-7p5kvc_WifYZgNewqQwOM9kL6AEVcyfn7OxF1hw4lsY3aQuBc6kddpQ-Rqdzg7U/exec">
 <meta name="description" content="The Henschel family Christmas wish list, with prices checked every morning.">
 <meta property="og:title" content="The Henschel Wish Book">
-<meta property="og:description" content="Gift ideas for Alex, Maggie, Averie and Zach, with today's best prices.">
+<meta property="og:description" content="Gift ideas for Alex, Maggie, Averie, Zach and Coby, with today's best prices.">
 <link rel="icon" href="favicon.ico" sizes="48x48">
 <link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="icons/icon-32.png" type="image/png" sizes="32x32">
@@ -213,14 +213,13 @@ td.num{font-variant-numeric:tabular-nums;text-align:right}
   <div class="wrap">
     <div class="mast-top"><span class="eyebrow" style="color:inherit">Christmas 2026 · Vol. I</span><span class="eyebrow" style="color:inherit" id="lastCheck">Prices checked daily</span></div>
     <h1>The Henschel <em>Wish Book</em></h1>
-    <div class="mast-sub"><span><strong>Alex, Maggie, Averie &amp; Zach</strong></span><span>Every price links to where you can buy it. Check items off when you do.</span></div>
+    <div class="mast-sub"><span><strong>Alex, Maggie, Averie, Zach &amp; Coby</strong></span><span>Every price links to where you can buy it. Check items off when you do.</span></div>
   </div>
 </header>
 
 <nav class="bar" aria-label="Filters">
   <div class="wrap">
     <div class="chips" id="personChips" role="group" aria-label="Show gifts for">
-      <button class="chip" data-person="all" aria-pressed="true">Everyone</button>
     </div>
     <select id="band" aria-label="Price range">
       <option value="all">Any price</option>
@@ -232,7 +231,7 @@ td.num{font-variant-numeric:tabular-nums;text-align:right}
     <label class="toggle"><input type="checkbox" id="saleOnly"> On sale only</label>
     <span class="spacer"></span>
     <a href="#add" class="owner-link" id="addLink">+ Add a wish</a>
-    <a href="#" class="owner-link" id="catalogLink" hidden>Back to catalog</a>
+    <a href="#" class="owner-link" id="catalogLink" hidden>Back to the list</a>
   </div>
 </nav>
 
@@ -252,16 +251,17 @@ td.num{font-variant-numeric:tabular-nums;text-align:right}
 <script>
 (function(){
 "use strict";
-const PEOPLE_ORDER=["alex","maggie","averie","zach","household"];
+const PEOPLE_ORDER=["alex","maggie","averie","zach","coby","household"];
 const MODES={exact:"Exact match only",like:"Like brands OK",any:"Any brand, best deal"};
 const PRIORITY={must:"Must-have",love:"Would love",fun:"Fun extra"};
 const PRI_RANK={must:0,love:1,fun:2};
 const S={people:{},items:{},status:{},profiles:{},meta:null,
-  f:{person:"all",band:"all",sale:false},got:{items:false,people:false},pending:{},timedOut:false,
+  f:{person:"",band:"all",sale:false},got:{items:false,people:false},pending:{},timedOut:false,
   add:{tab:"wish",person:"",busy:false,msg:"",err:"",img:null}};
 const store={get(k){try{return localStorage.getItem(k)||"";}catch(e){return "";}},set(k,v){try{localStorage.setItem(k,v);}catch(e){}}};
 
 const ICONS={
+  paw:'<ellipse cx="32" cy="42" rx="12" ry="10"/><ellipse cx="17" cy="27" rx="5" ry="7"/><ellipse cx="27" cy="18" rx="5" ry="7"/><ellipse cx="37" cy="18" rx="5" ry="7"/><ellipse cx="47" cy="27" rx="5" ry="7"/>',
   saw:'<path d="M6 40h30l8-6h14v12H44l-8-6"/><path d="M10 40v8h22v-8"/><path d="M44 34V22l8-6"/><circle cx="18" cy="44" r="0"/><path d="M8 36l4-4M14 36l4-4M20 36l4-4M26 36l4-4"/>',
   jacket:'<path d="M24 8l8 6 8-6 10 6 6 18-7 2v22H15V34l-7-2 6-18z"/><path d="M32 14v42"/><path d="M22 36h6M36 36h6"/>',
   earbuds:'<path d="M18 14a8 8 0 1 1 0 16v16"/><path d="M46 14a8 8 0 1 0 0 16v16"/><rect x="22" y="44" width="20" height="12" rx="6"/>',
@@ -369,15 +369,22 @@ function cardHtml(o){
   h+='</div></article>';
   return h;
 }
+function pickPerson(pid){S.f.person=pid;store.set("wb-person",pid);if(location.hash!=="#add")history.replaceState(null,"","#"+pid);render();}
+function ensurePerson(){
+  const ids=peopleIds();if(!ids.length)return;
+  if(ids.includes(S.f.person))return;
+  const h=location.hash.slice(1),saved=store.get("wb-person");
+  S.f.person=ids.includes(h)?h:ids.includes(saved)?saved:ids[0];
+}
 function renderCover(){
   const el=document.getElementById("cover");
   let best=null;
   for(const [id,it] of Object.entries(S.items)){
-    if(isBought(id))continue;const v=view(it);if(!v||!v.onSale||overCap(v))continue;
+    if(isBought(id)||it.person!==S.f.person)continue;const v=view(it);if(!v||!v.onSale||overCap(v))continue;
     if(!best||v.pct>best.v.pct||(v.pct===best.v.pct&&v.save>best.v.save))best={id,it,v};
   }
   if(!best){
-    el.innerHTML=S.got.items?'<div class="cover-grid"><div class="cover-plate">'+icon("gift")+'</div><div class="cover-copy"><p class="eyebrow">Today’s best deal</p><h2>No verified sales on the list today.</h2><p class="dek">Prices are rechecked every morning. When a retailer marks something down, it lands here first.</p></div></div>':'';
+    el.innerHTML=S.got.items?'<div class="cover-grid"><div class="cover-plate">'+icon("gift")+'</div><div class="cover-copy"><p class="eyebrow">Today’s best deal</p><h2>No verified sales on '+esc((S.people[S.f.person]||{}).name||"this")+'’s list today.</h2><p class="dek">Prices are rechecked every morning. When a retailer marks something down, it lands here first.</p></div></div>':'';
     return;
   }
   const {id,it,v}=best;const who=S.people[it.person];
@@ -409,9 +416,9 @@ function renderSections(){
   if(!pids.length){box.innerHTML=S.got.people?'<div class="empty">The list is empty for now. Check back soon.</div>':'<div class="empty" style="margin-top:30px">Opening the wish book…</div>';return;}
   let h="";
   for(const pid of pids){
-    if(S.f.person!=="all"&&S.f.person!==pid)continue;
+    if(S.f.person!==pid)continue;
     const p=S.people[pid];const list=visibleItems(pid);
-    h+='<section class="section" id="sec-'+esc(pid)+'" aria-label="'+esc(p.name)+'"><div class="sec-head"><div><p class="eyebrow">Section '+esc(p.order||"")+'</p><h2>'+esc(p.name)+(p.age?'<span class="age">age '+esc(p.age)+'</span>':'')+'</h2>'+(p.headline?'<p class="headline">'+esc(p.headline)+'</p>':'')+'</div>'+fitHtml(p)+'</div>'+(S.f.person===pid?inspoHtml(pid,p):'');
+    h+='<section class="section" id="sec-'+esc(pid)+'" aria-label="'+esc(p.name)+'"><div class="sec-head"><div><p class="eyebrow">Section '+esc(p.order||"")+'</p><h2>'+esc(p.name)+(p.age?'<span class="age">age '+esc(p.age)+'</span>':'')+'</h2>'+(p.headline?'<p class="headline">'+esc(p.headline)+'</p>':'')+'</div>'+fitHtml(p)+'</div>'+inspoHtml(pid,p);
     h+=list.length?'<div class="grid">'+list.map(cardHtml).join("")+'</div>':'<div class="empty">'+(S.f.sale||S.f.band!=="all"?"Nothing here matches these filters.":"Everything on "+esc(p.name)+"’s list has been bought.")+'</div>';
     h+='</section>';
   }
@@ -420,7 +427,7 @@ function renderSections(){
 function renderChips(){
   const box=document.getElementById("personChips");
   const pids=PEOPLE_ORDER.filter(pid=>S.people[pid]);
-  box.innerHTML='<button class="chip" data-person="all" aria-pressed="'+(S.f.person==="all")+'">Everyone</button>'+pids.map(pid=>'<button class="chip" data-person="'+esc(pid)+'" aria-pressed="'+(S.f.person===pid)+'">'+esc(S.people[pid].name)+'</button>').join("");
+  box.innerHTML=pids.map(pid=>'<button class="chip" data-person="'+esc(pid)+'" aria-pressed="'+(S.f.person===pid)+'">'+esc(S.people[pid].name)+'</button>').join("");
 }
 function renderMeta(){
   const el=document.getElementById("lastCheck");
@@ -469,6 +476,7 @@ async function post(body){const r=await fetch(API_URL,{method:"POST",headers:{"C
 function render(){
   const a=document.activeElement;const aid=a&&a.id;let ss=null,se=null;
   try{if(a&&"selectionStart" in a){ss=a.selectionStart;se=a.selectionEnd;}}catch(e){}
+  ensurePerson();
   const ownerMode=location.hash==="#add";
   document.getElementById("catalog").hidden=ownerMode;
   document.getElementById("add").hidden=!ownerMode;
@@ -506,7 +514,7 @@ async function commit(id){
 /* ---------- events ---------- */
 document.addEventListener("click",async ev=>{
   const chip=ev.target.closest("[data-person]");
-  if(chip){S.f.person=chip.dataset.person;render();if(S.f.person!=="all"){const s=document.getElementById("sec-"+S.f.person);if(s)s.scrollIntoView({behavior:"smooth",block:"start"});}return;}
+  if(chip){pickPerson(chip.dataset.person);window.scrollTo({top:0,behavior:"smooth"});return;}
   const t=ev.target.closest("[data-action]");if(!t)return;
   const id=t.dataset.id;const a=t.dataset.action;
   if(a==="bought"){
@@ -528,7 +536,7 @@ document.addEventListener("input",ev=>{
 document.getElementById("band").addEventListener("change",e=>{S.f.band=e.target.value;render();});
 document.getElementById("saleOnly").addEventListener("change",e=>{S.f.sale=e.target.checked;render();});
 document.getElementById("catalogLink").addEventListener("click",e=>{e.preventDefault();history.replaceState(null,"",location.pathname+location.search);render();window.scrollTo(0,0);});
-window.addEventListener("hashchange",()=>{render();window.scrollTo(0,0);});
+window.addEventListener("hashchange",()=>{const h=location.hash.slice(1);if(S.people[h]){S.f.person=h;store.set("wb-person",h);}render();window.scrollTo(0,0);});
 document.addEventListener("change",async ev=>{
   const t=ev.target;
   if(t.id==="a-person")S.add.person=t.value;
