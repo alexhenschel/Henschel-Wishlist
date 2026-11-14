@@ -367,10 +367,8 @@ function cardHtml(o){
     h+='<details class="also"><summary>Also checked ('+also.length+')</summary><ul>'+also.map(a=>{const u=safeUrl(a.url);return '<li>'+(u?'<a href="'+esc(u)+'" target="_blank" rel="noopener">':'')+esc(a.name)+(u?'</a>':'')+' — '+money(a.price)+(a.retailer?' at '+esc(a.retailer):'')+(a.note?' ('+esc(a.note)+')':'')+'</li>';}).join("")+'</ul></details>';
   }
   if(pend&&pend.stage==="confirm"){
-    h+='<div class="confirm" role="group" aria-label="Confirm purchase"><p><b>Mark as bought?</b> It disappears from the list for everyone. Details stay private with Alex.</p>'+
+    h+='<div class="confirm" role="group" aria-label="Confirm purchase"><p><b>Mark as bought?</b> It disappears from the list for everyone. Details stay private from the family until after the holiday.</p>'+
       '<div class="field"><label for="buyer-'+esc(id)+'">Your name (optional)</label><input id="buyer-'+esc(id)+'" data-pf="buyer" data-id="'+esc(id)+'" value="'+esc(pend.buyer||"")+'" autocomplete="name" maxlength="60"></div>'+
-      '<div class="row2"><div class="field"><label for="paid-'+esc(id)+'">Price paid</label><input id="paid-'+esc(id)+'" data-pf="paid" data-id="'+esc(id)+'" inputmode="decimal" value="'+esc(pend.paid||"")+'"></div>'+
-      '<div class="field"><label for="ret-'+esc(id)+'">Store</label><input id="ret-'+esc(id)+'" data-pf="retailer" data-id="'+esc(id)+'" value="'+esc(pend.retailer||"")+'" maxlength="80"></div></div>'+
       '<div class="btns"><button class="btn" data-action="confirm" data-id="'+esc(id)+'">Mark bought</button><button class="btn ghost" data-action="cancel" data-id="'+esc(id)+'">Cancel</button></div></div>';
   }else if(pend&&pend.stage==="counting"){
     h+='<div class="counting" role="status"><span id="cd-'+esc(id)+'">Marking as bought in '+pend.left+'s…</span><button class="btn" data-action="undo" data-id="'+esc(id)+'">Undo</button></div>';
@@ -542,7 +540,7 @@ function startCountdown(id){
 async function commit(id){
   const p=S.pending[id];if(!p)return;const it=S.items[id]||{};const v=view(it);
   p.stage="saving";render();
-  const entry={itemId:id,item:it.name||"",pick:v?v.name:it.name||"",recipient:it.person||"",buyerName:String(p.buyer||"").trim().slice(0,60),pricePaid:parseFloat(String(p.paid||"").replace(/[^0-9.]/g,""))||null,retailer:String(p.retailer||"").trim().slice(0,80),at:new Date().toISOString()};
+  const entry={itemId:id,item:it.name||"",pick:v?v.name:it.name||"",recipient:it.person||"",buyerName:String(p.buyer||"").trim().slice(0,60),pricePaid:null,retailer:"",at:new Date().toISOString()};
   try{
     const r=await fetch(API_URL,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({action:"purchase",itemId:id,buyerName:entry.buyerName,pricePaid:entry.pricePaid,retailer:entry.retailer})});
     const d=await r.json();if(!d.ok)throw new Error(d.error||"failed");
