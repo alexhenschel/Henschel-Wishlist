@@ -27,7 +27,7 @@ The Google Sheet **"Henschel Wish Book"** is the single source of truth. Everyth
 
 1. Open the Sheet, then **Extensions > Apps Script**.
 2. Replace everything in `Code.gs` with the contents of `apps-script/Code.gs`, then save.
-3. **Project Settings > Script properties > Add script property**: `FAMILY_CODE` = the passcode family will use to add wishes and preferences. Without it, adding from the site stays off.
+3. **Project Settings > Script properties > Add script property**: `FAMILY_CODE` = the passcode family will use to add wishes and preferences. Without it, adding from the site stays off. Add `OWNER_CODE` too (Alex and Maggie only): it unlocks **Manage list** in the site's footer, where you can remove items. Removed items move to a **Removed** tab in the Sheet and can be undone.
 4. **Deploy > Manage deployments > Edit (pencil) > Version: New version > Deploy.** Approve the new Google Drive permission (screenshots are saved to your Drive). The web app URL stays the same.
 
 First-time setup only: **Deploy > New deployment**, type **Web app**, Execute as **Me**, access **Anyone**, then paste the `/exec` URL into the `wishbook-api` tag near the top of `index.html`.

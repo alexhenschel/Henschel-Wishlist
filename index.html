@@ -191,6 +191,13 @@ td.num{font-variant-numeric:tabular-nums;text-align:right}
 .formgrid .full{grid-column:1/-1}
 .sizes-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px}
 .owner-tools{display:flex;gap:12px;width:100%;justify-content:flex-end;border-top:1px dashed var(--rule);padding-top:8px}
+.mgr{margin-top:18px;border:1px solid var(--berry);background:var(--card);padding:12px 14px;display:flex;gap:10px 14px;align-items:center;flex-wrap:wrap;font-size:14px}
+.mgr form{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.mgr input{font:500 14px var(--body);padding:7px 10px;border:1px solid var(--rule);border-radius:2px;background:var(--paper);color:var(--ink);width:160px}
+.mgr .err{color:var(--berry);font-weight:600}
+.rmbtn{font:700 13px var(--body);background:none;border:1px solid var(--berry);color:var(--berry);padding:6px 10px;border-radius:2px;cursor:pointer}
+.rmconfirm{width:100%;background:var(--plate);padding:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13.5px}
+.linkbtn.manage{color:var(--muted)}
 .linkbtn{font:600 12.5px var(--body);background:none;border:0;padding:2px 0;color:var(--muted);cursor:pointer;text-decoration:underline;text-underline-offset:3px}
 .linkbtn:hover{color:var(--berry)}
 .toast-undo{margin-left:14px;font:700 13px var(--body);background:none;border:0;color:var(--gold);cursor:pointer;text-decoration:underline}
@@ -236,6 +243,7 @@ td.num{font-variant-numeric:tabular-nums;text-align:right}
 </nav>
 
 <main id="catalog">
+  <div class="wrap" id="mgrBar"></div>
   <section class="wrap cover" id="cover" aria-label="Today's best deal"></section>
   <div class="wrap" id="sections"></div>
   <div class="wrap" id="loadNote"></div>
@@ -245,7 +253,7 @@ td.num{font-variant-numeric:tabular-nums;text-align:right}
 
 <footer class="colophon"><div class="wrap">
   <span>Sale prices appear only when the retailer's own page shows them. Each price shows when it was last checked.</span>
-  <span class="mono">Bought something? Tick “I bought this” so nobody doubles up. Spotted a gift idea? <a href="#add">Add a wish</a>.</span>
+  <span class="mono">Bought something? Tick “I bought this” so nobody doubles up. Spotted a gift idea? <a href="#add">Add a wish</a>. <button class="linkbtn manage" data-action="manage" id="manageLink" hidden>Manage list</button></span>
 </div></footer>
 
 <script>
@@ -257,7 +265,8 @@ const PRIORITY={must:"Must-have",love:"Would love",fun:"Fun extra"};
 const PRI_RANK={must:0,love:1,fun:2};
 const S={people:{},items:{},status:{},profiles:{},meta:null,
   f:{person:"",band:"all",sale:false},got:{items:false,people:false},pending:{},timedOut:false,
-  add:{tab:"wish",person:"",busy:false,msg:"",err:"",img:null}};
+  add:{tab:"wish",person:"",busy:false,msg:"",err:"",img:null},
+  mgr:{open:false,on:false,confirm:"",busy:"",err:"",last:null}};
 const store={get(k){try{return localStorage.getItem(k)||"";}catch(e){return "";}},set(k,v){try{localStorage.setItem(k,v);}catch(e){}}};
 
 const ICONS={
@@ -365,9 +374,25 @@ function cardHtml(o){
     h+='<div class="denied">That didn’t go through. Check your connection and try again, or let Alex know you bought it. <button class="btn ghost" data-action="cancel" data-id="'+esc(id)+'" style="margin-top:8px">OK</button></div>';
   }
   h+='<div class="actions">'+(v&&v.url?'<a class="buy" href="'+esc(v.url)+'" target="_blank" rel="noopener">Buy'+(v.retailer?' at '+esc(v.retailer):'')+' →</a>':(safeUrl(it.refLink)?'<a class="buy" href="'+esc(safeUrl(it.refLink))+'" target="_blank" rel="noopener">See the item →</a>':'<span></span>'))+
-     '<label class="bought"><input type="checkbox" id="bought-'+esc(id)+'" data-action="bought" data-id="'+esc(id)+'"'+(pend?' checked':'')+'> I bought this</label></div>';
+     '<label class="bought"><input type="checkbox" id="bought-'+esc(id)+'" data-action="bought" data-id="'+esc(id)+'"'+(pend?' checked':'')+'> I bought this</label>'+mgrTools(id)+'</div>';
   h+='</div></article>';
   return h;
+}
+function mgrTools(id){
+  const M=S.mgr;if(!M.on)return '';
+  const it=S.items[id]||{};
+  if(M.confirm===id)return '<div class="rmconfirm" role="group" aria-label="Confirm removal"><span>Remove “'+esc(it.name||"this item")+'” from the list? You can undo it.</span><button class="btn danger" data-action="rmYes" data-id="'+esc(id)+'"'+(M.busy===id?' disabled':'')+'>'+(M.busy===id?"Removing…":"Remove")+'</button><button class="btn ghost" data-action="rmNo" data-id="'+esc(id)+'">Keep</button></div>';
+  return '<span class="owner-tools"><button class="rmbtn" data-action="rm" data-id="'+esc(id)+'">Remove from list</button></span>';
+}
+function renderMgr(){
+  const el=document.getElementById("mgrBar");const M=S.mgr;
+  const lk=document.getElementById("manageLink");if(lk)lk.hidden=!(S.meta&&S.meta.removing)||M.open;
+  if(!M.open){el.innerHTML="";return;}
+  if(!M.on){
+    el.innerHTML='<div class="mgr"><b>Manage list</b><form id="mgrForm"><label for="mgr-code">Owner passcode</label><input id="mgr-code" type="password" autocomplete="current-password"><button class="btn" type="submit"'+(M.busy==="code"?' disabled':'')+'>Unlock</button><button class="btn ghost" type="button" data-action="mgrClose">Cancel</button></form>'+(M.err?'<span class="err" role="alert">'+esc(M.err)+'</span>':'')+'</div>';
+    return;
+  }
+  el.innerHTML='<div class="mgr"><b>Managing the list.</b><span>Use “Remove from list” on any item. Removed items go to the Sheet’s Removed tab.</span>'+(M.err?'<span class="err" role="alert">'+esc(M.err)+'</span>':'')+'<button class="btn ghost" data-action="mgrClose">Done</button><button class="linkbtn" data-action="mgrLock">Lock</button></div>';
 }
 function pickPerson(pid){S.f.person=pid;store.set("wb-person",pid);if(location.hash!=="#add")history.replaceState(null,"","#"+pid);render();}
 function ensurePerson(){
@@ -486,6 +511,7 @@ function render(){
   document.getElementById("band").hidden=ownerMode;
   document.getElementById("saleOnly").parentElement.hidden=ownerMode;
   renderMeta();
+  renderMgr();
   const mp=maxPrice();document.getElementById("bandTop").textContent=isFinite(mp)?"$150–"+Math.round(mp):"$150+";
   if(ownerMode)renderAdd();else{renderChips();renderCover();renderSections();}
   const ln=document.getElementById("loadNote");
@@ -529,6 +555,24 @@ document.addEventListener("click",async ev=>{
   else if(a==="jump"){const c=document.getElementById("card-"+id);if(c)c.scrollIntoView({behavior:"smooth",block:"center"});}
   else if(a==="addTab"){S.add.tab=id;S.add.msg=S.add.err="";render();}
   else if(a==="addPref"){S.add.tab="pref";S.add.person=id;S.add.msg=S.add.err="";}
+  else if(a==="manage"){const M=S.mgr;M.open=true;M.err="";M.on=!!store.get("wb-owner");render();window.scrollTo({top:0,behavior:"smooth"});const f=document.getElementById("mgr-code");if(f)f.focus();}
+  else if(a==="mgrClose"){S.mgr.open=S.mgr.on=false;S.mgr.confirm="";render();}
+  else if(a==="mgrLock"){store.set("wb-owner","");S.mgr.open=S.mgr.on=false;S.mgr.confirm="";render();toast("Locked");}
+  else if(a==="rm"){S.mgr.confirm=id;S.mgr.err="";render();}
+  else if(a==="rmNo"){S.mgr.confirm="";render();}
+  else if(a==="rmYes"){
+    const M=S.mgr;if(M.busy)return;M.busy=id;render();
+    try{const d=await post({action:"remove_item",code:store.get("wb-owner"),itemId:id});
+      if(!d.ok){if(d.error==="bad_code"){store.set("wb-owner","");M.on=false;}throw new Error(d.error||"failed");}
+      const name=(S.items[id]||{}).name||"Item";M.last=id;delete S.items[id];M.confirm="";M.err="";toastUndo("Removed “"+name+"”.");
+    }catch(e){M.err=e.message==="bad_code"?"That owner passcode no longer works. Unlock again.":"That didn’t go through. Try again.";}
+    M.busy="";render();
+  }
+  else if(a==="undoRemove"){
+    const M=S.mgr,rid=M.last;if(!rid)return;t.closest(".toast")?.remove();
+    try{const d=await post({action:"restore_item",code:store.get("wb-owner"),itemId:rid});if(!d.ok)throw new Error();M.last=null;toast("Put back on the list");await load(false);}
+    catch(e){toast("Couldn’t undo. It’s in the Sheet’s Removed tab.");}
+  }
 });
 document.addEventListener("input",ev=>{
   const t=ev.target;if(t.dataset&&t.dataset.pf){const p=S.pending[t.dataset.id];if(p)p[t.dataset.pf]=t.value;}
@@ -548,6 +592,12 @@ document.addEventListener("change",async ev=>{
 document.addEventListener("submit",async ev=>{
   ev.preventDefault();
   const f=ev.target;const A=S.add;const g=id=>{const n=document.getElementById(id);return n?n.value.trim():"";};
+  if(f.id==="mgrForm"){
+    const M=S.mgr,code=g("mgr-code");if(!code)return;M.busy="code";M.err="";render();
+    try{const d=await post({action:"check_owner",code});if(!d.ok)throw new Error("bad");store.set("wb-owner",code);M.on=true;}
+    catch(e){M.err="That owner passcode didn’t work.";}
+    M.busy="";render();return;
+  }
   if(f.id!=="wishForm"&&f.id!=="prefForm")return;
   if(!API_URL||S.noApi){A.err="The site isn’t connected to the Sheet yet.";render();return;}
   const code=g("a-code");if(!code){A.err="Enter the family passcode.";render();return;}
@@ -586,7 +636,7 @@ async function load(first){
   render();
 }
 load(true);
-const busy=()=>Object.keys(S.pending).length||location.hash==="#add";
+const busy=()=>Object.keys(S.pending).length||location.hash==="#add"||!!S.mgr.confirm||!!S.mgr.busy;
 setInterval(()=>{if(!document.hidden&&!busy())load(false);},60000);
 document.addEventListener("visibilitychange",()=>{if(!document.hidden&&!busy())load(false);});
 })();

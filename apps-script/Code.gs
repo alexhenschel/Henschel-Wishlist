@@ -18,9 +18,18 @@
  *           to the Drive folder named in Settings > inbox_folder.
  *         {"action":"add_pref", code, person, type, value, addedBy}
  *           Appends a row to Profiles (shown on the site).
+ *         {"action":"check_owner", code}
+ *         {"action":"remove_item", code, itemId}
+ *           Owner only. Moves the Items row to the "Removed" tab (with the
+ *           time removed) and deletes it from Items.
+ *         {"action":"restore_item", code, itemId}
+ *           Owner only. Moves the most recent Removed row for that ID back
+ *           to the bottom of Items.
  *
  * The family passcode lives in Project Settings > Script properties as
  * FAMILY_CODE. Without it, adding wishes and preferences is switched off.
+ * Removing items needs a separate owner passcode in OWNER_CODE (Alex and
+ * Maggie only). Without it, removing from the site is switched off.
  */
 
 var CACHE_KEY = 'public-v2';
@@ -46,6 +55,9 @@ function doPost(e) {
     if (action === 'check_code') return json_({ ok: codeOk_(req.code) });
     if (action === 'add_wish') return json_(addWish_(req));
     if (action === 'add_pref') return json_(addPref_(req));
+    if (action === 'check_owner') return json_({ ok: ownerOk_(req.code) });
+    if (action === 'remove_item') return json_(removeItem_(req));
+    if (action === 'restore_item') return json_(restoreItem_(req));
   } catch (err) {
     return json_({ ok: false, error: 'server_error' });
   }
@@ -122,6 +134,78 @@ function addPref_(req) {
   return { ok: true };
 }
 
+function ownerOk_(code) {
+  var want = PropertiesService.getScriptProperties().getProperty('OWNER_CODE');
+  if (!want) return false;
+  var cache = CacheService.getScriptCache();
+  var fails = Number(cache.get('owner-fails') || 0);
+  if (fails >= 10) return false;
+  var ok = String(code || '').trim() === String(want).trim();
+  if (!ok) cache.put('owner-fails', String(fails + 1), 900);
+  return ok;
+}
+
+function removedSheet_(itemsHead) {
+  var ss = SpreadsheetApp.getActive();
+  var sh = ss.getSheetByName('Removed');
+  if (!sh) {
+    sh = ss.insertSheet('Removed');
+    sh.appendRow(['Removed at'].concat(itemsHead));
+    sh.setFrozenRows(1);
+  }
+  return sh;
+}
+
+function removeItem_(req) {
+  if (!ownerOk_(req.code)) return { ok: false, error: 'bad_code' };
+  var id = String(req.itemId || '').trim();
+  if (!id) return { ok: false, error: 'unknown_item' };
+  var lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    var sh = sheet_('Items');
+    var values = sh.getDataRange().getValues();
+    var idCol = values[0].map(function (h) { return String(h).trim(); }).indexOf('ID');
+    for (var r = 1; r < values.length; r++) {
+      if (String(values[r][idCol]).trim() === id) {
+        removedSheet_(values[0]).appendRow([new Date()].concat(values[r]));
+        sh.deleteRow(r + 1);
+        CacheService.getScriptCache().remove(CACHE_KEY);
+        return { ok: true };
+      }
+    }
+  } finally {
+    lock.releaseLock();
+  }
+  return { ok: false, error: 'unknown_item' };
+}
+
+function restoreItem_(req) {
+  if (!ownerOk_(req.code)) return { ok: false, error: 'bad_code' };
+  var id = String(req.itemId || '').trim();
+  var lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    var items = sheet_('Items');
+    var rm = SpreadsheetApp.getActive().getSheetByName('Removed');
+    if (!rm) return { ok: false, error: 'unknown_item' };
+    var values = rm.getDataRange().getValues();
+    var idCol = values[0].map(function (h) { return String(h).trim(); }).indexOf('ID');
+    for (var r = values.length - 1; r >= 1; r--) {
+      if (String(values[r][idCol]).trim() === id) {
+        var already = items.getRange(1, 1, items.getLastRow(), 1).getValues().some(function (v) { return String(v[0]).trim() === id; });
+        if (!already) items.appendRow(values[r].slice(1));
+        rm.deleteRow(r + 1);
+        CacheService.getScriptCache().remove(CACHE_KEY);
+        return { ok: true };
+      }
+    }
+  } finally {
+    lock.releaseLock();
+  }
+  return { ok: false, error: 'unknown_item' };
+}
+
 function inboxFolder_() {
   var name = String(settings_()['inbox_folder'] || 'Wish Book Inbox');
   var it = DriveApp.getFoldersByName(name);
@@ -147,7 +231,8 @@ function buildPublic_() {
       lastRun: iso_(settings['last_price_check']),
       summary: String(settings['summary'] || ''),
       maxPrice: num_(settings['max_price']),
-      adding: !!PropertiesService.getScriptProperties().getProperty('FAMILY_CODE')
+      adding: !!PropertiesService.getScriptProperties().getProperty('FAMILY_CODE'),
+      removing: !!PropertiesService.getScriptProperties().getProperty('OWNER_CODE')
     }
   };
 }
