@@ -89,7 +89,7 @@ a{color:inherit}
 
 /* Sections */
 .section{padding-block:44px 8px;border-top:1px solid var(--rule);margin-top:34px}
-.sec-head{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:28px;align-items:end;margin-bottom:24px}
+.sec-head{display:grid;grid-template-columns:1fr;gap:28px;align-items:end;margin-bottom:24px}
 .sec-head h2{font-family:var(--display);font-weight:500;font-size:clamp(48px,8vw,96px);line-height:.9;margin:6px 0 10px;letter-spacing:-.01em}
 .sec-head h2 .age{font-style:italic;font-weight:400;font-size:.36em;color:var(--muted);margin-left:.3em;letter-spacing:0}
 .sec-head .headline{font-family:var(--display);font-style:italic;font-size:22px;line-height:1.25;margin:0;max-width:34ch;text-wrap:balance}
@@ -101,6 +101,16 @@ a{color:inherit}
 .fit dt{color:var(--muted);font-size:13px}
 .fit dd{margin:0;font-weight:600;font-variant-numeric:tabular-nums;text-align:right}
 .fit dd.blank{color:var(--muted);font-weight:400}
+.sizeband{margin-top:22px;background:var(--mast-bg);color:var(--mast-fg);padding:18px 20px 20px;border-radius:2px}
+.sizeband-top{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.sizeband-top h2{font-family:var(--display);font-weight:600;font-size:clamp(26px,3.6vw,38px);line-height:1;margin:0}
+.sizeband-top .mono{color:var(--mast-muted)}
+.sizetiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin:0}
+.sizetile{background:var(--card);color:var(--ink);padding:12px 14px;border-radius:2px;border-top:4px solid var(--berry);display:flex;flex-direction:column;gap:4px;min-width:0}
+.sizetile dt{font-family:var(--mono);font-size:11.5px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted)}
+.sizetile dd{margin:0;font-family:var(--display);font-weight:800;font-size:clamp(24px,3vw,32px);line-height:1.05;font-variant-numeric:lining-nums tabular-nums;overflow-wrap:anywhere}
+.sizetile.blank{border-top-color:var(--rule)}
+.sizetile.blank dd{color:var(--muted);font-weight:400;font-style:italic;font-size:18px}
 
 /* Product grid */
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:22px}
@@ -240,6 +250,7 @@ td.num{font-variant-numeric:tabular-nums;text-align:right}
 
 <main id="catalog">
   <div class="wrap" id="mgrBar"></div>
+  <section class="wrap" id="sizeBand" aria-label="Sizes"></section>
   <section class="wrap cover" id="cover" aria-label="Today's best deal"></section>
   <div class="wrap" id="sections"></div>
   <div class="wrap" id="loadNote"></div>
@@ -421,11 +432,12 @@ function renderCover(){
    '<p class="meta">'+(v.stock?stockHtml(v.stock)+' · ':'')+'Checked '+esc(when(v.checked))+'</p>'+
    '<div class="btns">'+(v.url?'<a class="buy" href="'+esc(v.url)+'" target="_blank" rel="noopener">Buy at '+esc(v.retailer)+' →</a>':'')+'<button class="btn ghost" data-action="jump" data-id="'+esc(id)+'">See it on '+(who?esc(who.name)+'’s':'the')+' page</button></div></div></div>';
 }
-function fitHtml(p){
-  const sizes=Array.isArray(p.sizes)?p.sizes:[];
-  if(!sizes.length)return '<div></div>';
-  return '<div class="fit"><div class="fit-top"><b>Sizes</b><span class="mono">'+(p.sizesUpdated?'Updated '+esc(day(p.sizesUpdated)):'Not added yet')+'</span></div><dl>'+
-    sizes.map(s=>'<div><dt>'+esc(s.label)+'</dt><dd class="'+(s.value?"":"blank")+'">'+(s.value?esc(s.value):"—")+'</dd></div>').join("")+'</dl></div>';
+function renderSizeBand(){
+  const el=document.getElementById("sizeBand");const p=S.people[S.f.person];
+  const sizes=p&&Array.isArray(p.sizes)?p.sizes:[];
+  if(!sizes.length){el.innerHTML="";return;}
+  el.innerHTML='<div class="sizeband"><div class="sizeband-top"><h2>'+esc(p.name)+'’s sizes</h2><span class="mono">'+(p.sizesUpdated?'Updated '+esc(day(p.sizesUpdated)):'Not added yet')+'</span></div><dl class="sizetiles">'+
+    sizes.map(s=>'<div class="sizetile'+(s.value?'':' blank')+'"><dt>'+esc(s.label)+'</dt><dd>'+(s.value?esc(s.value):'Not added')+'</dd></div>').join("")+'</dl></div>';
 }
 function renderSections(){
   const box=document.getElementById("sections");
@@ -435,7 +447,7 @@ function renderSections(){
   for(const pid of pids){
     if(S.f.person!==pid)continue;
     const p=S.people[pid];const list=visibleItems(pid);
-    h+='<section class="section" id="sec-'+esc(pid)+'" aria-label="'+esc(p.name)+'"><div class="sec-head"><div><p class="eyebrow">Section '+esc(p.order||"")+'</p><h2>'+esc(p.name)+(p.age?'<span class="age">age '+esc(p.age)+'</span>':'')+'</h2>'+(p.headline?'<p class="headline">'+esc(p.headline)+'</p>':'')+'</div>'+fitHtml(p)+'</div>';
+    h+='<section class="section" id="sec-'+esc(pid)+'" aria-label="'+esc(p.name)+'"><div class="sec-head"><div><p class="eyebrow">Section '+esc(p.order||"")+'</p><h2>'+esc(p.name)+(p.age?'<span class="age">age '+esc(p.age)+'</span>':'')+'</h2>'+(p.headline?'<p class="headline">'+esc(p.headline)+'</p>':'')+'</div></div>';
     h+=list.length?'<div class="grid">'+list.map(cardHtml).join("")+'</div>':'<div class="empty">'+(S.f.sale||S.f.band!=="all"?"Nothing here matches these filters.":"Everything on "+esc(p.name)+"’s list has been bought.")+'</div>';
     h+='</section>';
   }
@@ -505,7 +517,7 @@ function render(){
   renderMeta();
   renderMgr();
   const mp=maxPrice();document.getElementById("bandTop").textContent=isFinite(mp)?"$150–"+Math.round(mp):"$150+";
-  if(ownerMode)renderAdd();else{renderChips();renderCover();renderSections();}
+  if(ownerMode)renderAdd();else{renderChips();renderSizeBand();renderCover();renderSections();}
   const ln=document.getElementById("loadNote");
   ln.innerHTML=S.noApi?'<div class="notice">This page isn’t connected to its Google Sheet yet. Add the Apps Script web app URL to the wishbook-api tag at the top of index.html.</div>':S.loadError?'<div class="notice">The latest list couldn’t be loaded. Showing what was loaded last; it will refresh automatically.</div>':S.timedOut&&!S.got.items?'<div class="notice">The list can’t be reached right now. It will appear as soon as the connection comes back.</div>':'';
   if(aid){const n=document.getElementById(aid);if(n&&n!==document.activeElement){n.focus({preventScroll:true});try{if(ss!=null)n.setSelectionRange(ss,se);}catch(e){}}}
